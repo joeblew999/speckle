@@ -1,0 +1,16 @@
+# Vendored upstream Speckle server source (pulled by mise, not committed)
+speckle-server/src/
+# Runtime data (postgres, minio, redis, logs)
+speckle-server/data/
+**/data/
+
+# Secrets — only .env.example is committed
+**/.env
+
+# Node / Python / build artifacts
+**/node_modules/
+**/__pycache__/
+**/.venv/
+**/dist/
+*.pid
+*.log
