@@ -2,7 +2,7 @@
 # Source: https://github.com/specklesystems/speckle-server
 #
 # Daemons managed by pitchfork (pitchfork.toml in this directory).
-# One-shot scripts (setup, test, admin) remain as bash in tasks/.
+# One-shot scripts are nushell (tasks/*.nu) — OS-neutral, no bash-isms.
 #
 # From project root:  mise run speckle:server:start
 # From this dir:      mise run start
@@ -30,36 +30,13 @@ SHARP_IGNORE_GLOBAL_LIBVIPS = "1"
 
 [tasks.setup]
 description = "First-time setup: clone, install, build, init infra"
-file = "tasks/setup"
+file = "tasks/setup.nu"
 raw = true
 
 [tasks.start]
 description = "Start everything via pitchfork (infra + API + frontend + admin)"
+file = "tasks/start.nu"
 raw = true
-run = """
-mkdir -p "$SPECKLE_LOGS"
-if [ ! -f "$SPECKLE_ROOT/.env" ]; then
-  echo "ERROR: .env not found. Run 'mise run setup' first."
-  exit 1
-fi
-if [ ! -f "$SPECKLE_SRC/packages/server/dist/index.js" ] && [ ! -f "$SPECKLE_SRC/packages/server/bin/www" ]; then
-  echo "ERROR: Server not built. Run 'mise run setup' first."
-  exit 1
-fi
-pitchfork start -l
-mise run admin:ensure
-echo ""
-echo "══════════════════════════════════════════════════"
-echo "  Speckle Server running (pitchfork)"
-echo "  Web UI:    http://127.0.0.1:8080"
-echo "  API:       http://127.0.0.1:3000"
-echo "  GraphQL:   http://127.0.0.1:3000/graphql"
-echo "  MinIO:     http://127.0.0.1:9001"
-echo "  Status:    pitchfork list"
-echo "  Logs:      pitchfork logs -t"
-echo "  Stop:      mise run stop"
-echo "══════════════════════════════════════════════════"
-"""
 
 [tasks.stop]
 description = "Stop everything"
@@ -67,26 +44,16 @@ run = "pitchfork stop --all"
 
 [tasks.restart]
 description = "Restart everything"
-raw = true
-run = "pitchfork stop --all 2>/dev/null || true; mise run start"
+run = [{ task = "stop" }, { task = "start" }]
 
 [tasks.status]
 description = "Check what's running"
+file = "tasks/status.nu"
 raw = true
-run = """
-pitchfork list
-echo ""
-echo "Health checks:"
-pg_isready -U speckle >/dev/null 2>&1 && echo "  Postgres  ✓" || echo "  Postgres  ✗"
-redis-cli ping >/dev/null 2>&1 && echo "  Redis     ✓" || echo "  Redis     ✗"
-curl -sf http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1 && echo "  MinIO     ✓" || echo "  MinIO     ✗"
-curl -sf http://127.0.0.1:3000/graphql >/dev/null 2>&1 && echo "  API       ✓" || echo "  API       ✗"
-curl -sf -o /dev/null http://127.0.0.1:8080 2>/dev/null && echo "  Frontend  ✓" || echo "  Frontend  ✗"
-"""
 
 [tasks.test]
 description = "Verify everything works end-to-end"
-file = "tasks/test"
+file = "tasks/test.nu"
 
 [tasks.logs]
 description = "Stream all daemon logs (pitchfork)"
@@ -106,12 +73,7 @@ run = "pitchfork stop postgres redis minio"
 [tasks."infra:reset"]
 description = "Stop and wipe all data"
 confirm = "This will WIPE all Speckle data. Continue?"
-run = """
-pitchfork stop --all 2>/dev/null || true
-echo "Wiping data..."
-rm -rf "$SPECKLE_DATA"
-echo "Done. Run 'mise run setup' to start fresh."
-"""
+file = "tasks/infra-reset.nu"
 
 # ── Server ───────────────────────────────────────────────────────────────────
 
@@ -121,20 +83,16 @@ run = "pitchfork start speckle-api"
 
 [tasks."server:down"]
 description = "Stop server + frontend"
-run = "pitchfork stop speckle-frontend speckle-api 2>/dev/null || true"
+run = "pitchfork stop speckle-frontend speckle-api"
 
 [tasks."server:up"]
 description = "Start dev mode (server + frontend) -> http://127.0.0.1:3000"
+file = "tasks/server-up.nu"
 raw = true
-run = """
-mkdir -p "$SPECKLE_LOGS"
-cd "$SPECKLE_SRC"
-yarn dev:minimal 2>&1 | tee "$SPECKLE_LOGS/server-dev.log"
-"""
 
 [tasks."server:build"]
 description = "Build all packages for production"
-file = "tasks/server-build"
+file = "tasks/server-build.nu"
 raw = true
 
 # ── Frontend ─────────────────────────────────────────────────────────────────
@@ -147,4 +105,4 @@ run = "pitchfork start speckle-frontend"
 
 [tasks."admin:ensure"]
 description = "Create admin account if needed"
-file = "tasks/admin-ensure"
+file = "tasks/admin-ensure.nu"
