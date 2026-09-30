@@ -1,0 +1,4 @@
+# speckle-watcher: Python toolchain pins (exact). uv manages deps; uv.lock is committed.
+[tools]
+python = "3.13.15"
+uv = "0.12.20"
